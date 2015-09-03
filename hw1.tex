@@ -1,0 +1,328 @@
+%{
+\documentclass[11pt, twoside]{article}   	% use "amsart" instead of "article" for AMSLaTeX format
+\usepackage{geometry}                		% See geometry.pdf to learn the layout options. There are lots.
+\geometry{letterpaper}                   		% ... or a4paper or a5paper or ... 
+%\geometry{landscape}                		% Activate for for rotated page geometry
+\usepackage[parfill]{parskip}    		% Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{graphicx}				% Use pdf, png, jpg, or eps§ with pdflatex; use eps in DVI mode
+								% TeX will automatically convert eps --> pdf in pdflatex	
+\usepackage{amssymb}
+\usepackage{color}
+\usepackage{matlab-prettifier}
+\usepackage{verbatim}
+\usepackage{fancyvrb}
+\usepackage{multicol}
+\usepackage{bm}
+\lstset{style=Matlab-editor,basicstyle=\ttfamily}
+
+\sloppy
+\definecolor{lightgray}{gray}{0.5}
+\newenvironment{matlab}{\comment}{\endcomment}
+\newenvironment{matlabv}{\lstlisting}{\endlstlisting}	
+
+
+\title{Homework \# 1}
+\author{Cody W. Eilar}
+%\date{}							% Activate to display a given date or no date
+
+\begin{document}
+\maketitle
+\section{Introduction} 
+This paper investigates support vector machines (SVM) for both classification 
+and regression of simple datasets. It explores these methods by leveraging
+the \textbf{MATLAB} bindings for \textbf{LIBSVM}. 
+
+\begin{matlab}
+%}
+close all; 
+clear all;
+% Set the random seed for reproducibility 
+rand('seed', 1e5);
+randn('seed', 1e5);
+
+fid = fopen('tmp/computer.tex', 'w'); 
+fprintf(fid, [computer]); 
+fclose(fid); 
+
+fid = fopen('tmp/matlabver.tex', 'w'); 
+a = ver('matlab'); 
+fprintf(fid, [a.Name ' version ' a.Version]); 
+fclose(fid); 
+%{
+\end{matlab}
+
+\section{Methods}
+ In this section we look at how we can setup a scenario 
+for testing how well a support vector machine works. In order to do this, 
+we need to first create some data. For the simple linear case, we can create
+four Gaussian distributions and plot them. Also, for reproducibiity 
+we note that the code was run using \input{tmp/computer} running
+ \input{tmp/matlabver} . That said, we can create four Gaussians
+with the following code and classify them as either being positive 1 or negative 1. 
+
+\begin{matlab}
+%}
+close all; 
+clear all;
+% Set the random seed for reproducibility 
+rand('seed', 1e5);
+randn('seed', 1e5);
+
+fid = fopen('tmp/computer.tex', 'w'); 
+fprintf(fid, computer); 
+fclose(fid); 
+%{
+\end{matlab}
+
+\begin{lstlisting}
+%}
+sigma = 0.2; 
+N = 10; 
+[X, Y] = plot2d(sigma, N);
+title('Four Gaussian distributions of points'); 
+saveas(gcf,'tmp/gaussian.eps','epsc')
+%{
+\end{lstlisting}  
+
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=4in]{tmp/gaussian.eps}
+\caption{Gaussian plot}
+\label{fig:gaus} 
+\end{figure}
+
+From Figure  \ref{fig:gaus}, we can see that there is a natural separation between the two labels. 
+The code shows that the first half of the  variable is negative 1, and the second half is positive 1. 
+We now have a simple linear problem to classify. We can further say that the classes are almost
+linearly separable, but there is some overlap. So even if we end up with a great classifier, there
+will still be points that are not properly classified. 
+
+The next step is to now classify the data using \textbf{LIBSVM}. This is done by calling \texttt{svmtrain}.
+ Typically, we would want to break up the training and testing data, but since 
+this is just a simple example, we will using the training data for the testing as well. The following code 
+trains the model: 
+\begin{lstlisting}
+%}
+delete 'tmp/svmtrain.txt'
+diary 'tmp/svmtrain.txt'
+model = svmtrain(Y', X, '-s 0 -t 0 -c 100');
+diary off; 
+%{
+\end{lstlisting}
+
+\color{lightgray}
+
+\VerbatimInput{tmp/svmtrain.txt}
+
+\color{black}
+
+The parameters mean the following: 
+\begin{itemize}
+\item -s 0 - This defines the kernel type
+\item -t 0 - This specifies the kernel type, 0 is for a linear kernel
+\item -c 100 - This specifies the cost, here the cost is 100
+\end{itemize}
+
+Now that we have the model, we need to see how well we can classify
+the data using \texttt{svmpredict}. 
+\begin{lstlisting}
+%}
+delete 'tmp/svmpredict.txt'
+diary 'tmp/svmpredict.txt'
+[predicted_label, accuracy, prob_estimates] = svmpredict(Y', X, model); 
+diary off
+%{
+\end{lstlisting}
+
+The output from running \texttt{svmpredict} is the following: 
+\color{lightgray}
+\VerbatimInput{tmp/svmpredict.txt}
+\color{black}
+
+It is obvious from these results that we can predict the data pretty well. 
+but what happens if we compare this to a different method? Will we get
+similar results? An easy test is to classify the data using \textbf{MATLAB}
+\'s function \texttt{lsqlin} with the same parameters that we used 
+for the support vector machine. 
+
+Before we compare though, let us start by plotting the shattering
+hyperplane along with circling the support vectors. 
+\begin{matlab}
+%}
+w = model.SVs' * model.sv_coef;
+b = -model.rho;
+if model.Label(1) == -1
+  w = -w;
+  b = -b;
+end
+hold on 
+sv = full(model.SVs);
+plot(sv(:,1),sv(:,2),'kO', 'MarkerSize', 10);
+
+y_hat = sign(w'*X' + b);
+plot_x = linspace(min(X(:,1)), max(X(:,1)), 30);
+plot_y = (-1/w(2))*(w(1)*plot_x + b);
+d_plus = plot_y + 1/norm(w); 
+d_minus = plot_y - 1/norm(w);
+plot(plot_x, d_plus, 'r--'); 
+hold on; 
+plot(plot_x, d_minus, 'b--'); 
+plot(plot_x, plot_y, 'k-', 'LineWidth', 1)
+title('Plot of shattering hyperplane and support vectors'); 
+legend('+1', '-1', 'Support Vectors', 'margin', '-margin', 'Hyperplane', 'Location', 'Northwest')
+saveas(gcf,'tmp/svmplot.eps','epsc')
+
+%{
+\end{matlab}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=4in]{tmp/svmplot.eps}
+\caption{Plot of shattering hyperplane and support vectors}
+\label{fig:svm} 
+\end{figure}
+
+\begin{lstlisting}
+%}
+delete 'tmp/lsqlin.txt'
+diary 'tmp/lsqlin.txt'
+z = lsqlin(X, Y)  
+diary off
+%{
+\end{lstlisting}
+
+\color{lightgray}
+\VerbatimInput{tmp/lsqlin.txt}
+\color{black}
+
+As with the SVM, the whole point of the least squares classifier
+is to solve the equation: 
+\begin{equation}
+f(x) = \hat{y}_n = \bm{w}^T\bm{x}_n + b
+\end{equation}
+
+So now we can plot the least squares result and compare it to the SVM
+result. The results of the figure are show in Figure \ref{fig:lsq}. 
+\begin{lstlisting}
+%}
+y_lsq = -(z(1)/z(2))*plot_x; 
+plot(plot_x, y_lsq); 
+legend('+1', '-1', 'Support Vectors', 'margin', '-margin', 'Hyperplane',...
+   'Least Squares', 'Location', 'Northwest')
+saveas(gcf,'tmp/lsqplot.eps','epsc')
+%{
+\end{lstlisting}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=4in]{tmp/lsqplot.eps}
+\caption{Plot of shattering hyperplane, support vectors and the least
+squares solution}
+\label{fig:lsq} 
+\end{figure}
+
+We can see from Figure \ref{fig:lsq} that almost all the same points are 
+classified except for two: it properly classifies one $-1$ value and 
+misclassifies one $+1$ value. 
+
+\section{Estimating The Structural Risk}
+\begin{matlab}
+%}
+% Set the random seed for reproducibility 
+rand('seed', 1e5);
+randn('seed', 1e5);
+close all 
+clear all
+
+%{
+\end{matlab}
+The goal of this section is plot the structural risk ($R(\alpha)$) and 
+the empirical risk ($R_{emp}(\alpha)$). The function that is used for
+generating the points is as follows (this function was given to us 
+in the homework): 
+
+\lstinputlisting{DataGenerator.m}
+
+Given that function we then do the following
+\begin{itemize}
+\item Set C to a value: 
+\begin{lstlisting}
+%}
+C = 100; 
+%{
+\end{lstlisting}
+\item Generate a set of 100 data, which will have a noise standard
+deviation equal to $\sigma/2$. The data generator function below generates
+data that is 10 dimensions. There are eight points describing a cube 
+of dimension $\sigma$, four points are at one side of the planed described by
+Equation \ref{eq:cube}. Here the $b=0$, at a distance $\sigma/2$ and they are
+labelled with $-1$. The other four are on the other side of the plane and are labelled
+as $+1$. 
+
+\begin{equation}
+\Pi \equiv \mathbf{w}^T\mathbf{x} + b , \mathbf{w}_i = 1/\sqrt(10)
+\label{eq:cube}
+\end{equation}
+ 
+\begin{lstlisting}
+%}
+sigma = .2; 
+N = 100; 
+[X1, Y1] = DataGenerator(N, sigma/2); 
+%{
+\end{lstlisting}  
+
+\item Train an SVM and compute its empirical error
+\begin{lstlisting}
+%}
+delete 'tmp/train_10d.txt'
+diary 'tmp/train_10d.txt'
+params = sprintf('-s 0 -t 0 -c %d', C); 
+m1 =  svmtrain(Y1, X1, params);
+diary off; 
+%{
+\end{lstlisting} 
+
+\color{lightgray}
+\VerbatimInput{tmp/train_10d.txt}
+\color{black}
+
+Now that we have trained the svm, we need to compute the empirical error (also known as the
+empirical risk). This is defined below in Equation \ref{eq:emp_risk}. 
+
+\begin{equation}
+R_{emp}(\alpha) = \frac{1}{2l} \sum\limits_{i=1}^l|y_i - f(x_i, \alpha)|
+\label{eq:emp_risk}
+\end{equation}
+
+In Equation \ref{eq:emp_risk},
+\begin{itemize}
+\item $l$ - The number of observations
+\item $y_i$ - is the the truth, in the case of the code this represents 
+\texttt{Y1}
+\item $\alpha$ - These are the support vector coefficients from the
+training. 
+\item $x_i$ - These are the observations, in the case of the code, this is
+related to variable \texttt{X1}. 
+\end{itemize}
+
+So we can now perform the calculation
+
+\begin{lstlisting}
+%}
+l = size(Y1,1); 
+loss = 0; 
+% Only certain observations contain non-zero values, hence we only index
+% into the vectors calculated from training. 
+for i = 1:size(m1.sv_indices,1); 
+   loss = loss + abs(Y1[m1.sv_indices[i] - 
+end
+%{
+\end{lstlisting}
+
+\end{itemize}
+\end{document}  
+%}
+
+
