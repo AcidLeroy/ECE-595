@@ -28,9 +28,11 @@
 \begin{document}
 \maketitle
 \section{Introduction} 
-This paper investigates support vector machines (SVM) for both classification 
-and regression of simple datasets. It explores these methods by leveraging
-the \textbf{MATLAB} bindings for \textbf{LIBSVM}. 
+This paper investigates support vector machines (SVM) for both classification
+ of simple datasets. It explores these methods by leveraging
+the \textbf{MATLAB} bindings for \textbf{LIBSVM}. Here, we use simple datasets
+so that we can get a feel for how well an SVM works so that we can then 
+apply it to more complicated and useful datasets. 
 
 \begin{matlab}
 %}
@@ -51,14 +53,66 @@ fclose(fid);
 %{
 \end{matlab}
 
-\section{Methods}
- In this section we look at how we can setup a scenario 
-for testing how well a support vector machine works. In order to do this, 
+\section{Theory}
+The theory behind \textit{SVMs} is fairly simple even though they are designed
+to solve complicated problems. At the core, \textit{SVMs} are linear machines
+which makes them easy to analyze and information can be more easily 
+interpreted because of their linear nature. Though they are linear machines,
+a trick and be used to exploit seemingly non-linear behavior using the kernel trick. 
+I do not exploit this trick in this paper because we only want to investigate
+\textit{SVMs} at their most primitive state. Ultimately, we solve Equation \ref{eq:basic} 
+
+\begin{equation}
+\hat{y}= \mathbf{w}^T\mathbf{x} + b 
+\label{eq:basic}
+\end{equation}
+
+with the following constraints
+
+\begin{equation}
+\mathbf{w} = \sum\limits_{n=1}^{N} \alpha_n y_n\mathbf{x}_n
+\label{eq:c1}
+\end{equation}
+
+\begin{equation}
+C - \alpha_n -\mu_n = 0
+\label{eq:c2}
+\end{equation}
+
+\begin{equation}
+\sum\limits_{n=1}^{N} \alpha_n y_n = 0
+\label{eq:c3}
+\end{equation}
+
+\begin{equation}
+\mu_n \xi_n = 0
+\label{eq:c4}
+\end{equation}
+
+\begin{equation}
+\alpha_n(y_n(\mathbf{w}^T\mathbf{x}_n + b) - 1 + \xi_n) = 0
+\label{eq:c5}
+\end{equation}
+
+\begin{equation}
+\alpha_n \geq 0, \mu_n \geq 0, \xi_n \geq 0
+\label{eq:c6}
+\end{equation}
+
+All the constraints listed above are known as the \textit{KKT} conditions and are important
+constraints for solving support vector machines. 
+
+\section{Results \& Experiments}
+ In this section we set up the experiments necessary to see how well
+ the support vector machine works. This section performs the experiments
+ by first setting up the data necessary with which to test, and then 
+ running the support vector machine algorithms using \textbf{LIBSVM}
+  to test their performance on the data. In order to do this, 
 we need to first create some data. For the simple linear case, we can create
-four Gaussian distributions and plot them. Also, for reproducibiity 
+four Gaussian distributions and plot them. Also, for reproducibility 
 we note that the code was run using \input{tmp/computer} running
  \input{tmp/matlabver} . That said, we can create four Gaussians
-with the following code and classify them as either being positive 1 or negative 1. 
+with the following code and classify them as either being $+1$ or $-1$. 
 
 \begin{matlab}
 %}
@@ -98,9 +152,11 @@ We now have a simple linear problem to classify. We can further say that the cla
 linearly separable, but there is some overlap. So even if we end up with a great classifier, there
 will still be points that are not properly classified. 
 
+
+\subsection{Construction of a Classifier with the Model Parameters}
 The next step is to now classify the data using \textbf{LIBSVM}. This is done by calling \texttt{svmtrain}.
  Typically, we would want to break up the training and testing data, but since 
-this is just a simple example, we will using the training data for the testing as well. The following code 
+this is just a simple example, we will be using the training data for the testing as well. The following code 
 trains the model: 
 \begin{lstlisting}
 %}
@@ -143,8 +199,10 @@ The output from running \texttt{svmpredict} is the following:
 It is obvious from these results that we can predict the data pretty well. 
 but what happens if we compare this to a different method? Will we get
 similar results? An easy test is to classify the data using \textbf{MATLAB}
-\'s function \texttt{lsqlin} with the same parameters that we used 
+'s function \texttt{lsqlin} with the same parameters that we used 
 for the support vector machine. 
+
+\subsection{Graphical Representation of an SVM}
 
 Before we compare though, let us start by plotting the shattering
 hyperplane along with circling the support vectors. 
@@ -161,7 +219,9 @@ sv = full(model.SVs);
 plot(sv(:,1),sv(:,2),'kO', 'MarkerSize', 10);
 
 y_hat = sign(w'*X' + b);
+
 plot_x = linspace(min(X(:,1)), max(X(:,1)), 30);
+
 plot_y = (-1/w(2))*(w(1)*plot_x + b);
 d_plus = plot_y + 1/norm(w); 
 d_minus = plot_y - 1/norm(w);
@@ -226,7 +286,7 @@ We can see from Figure \ref{fig:lsq} that almost all the same points are
 classified except for two: it properly classifies one $-1$ value and 
 misclassifies one $+1$ value. 
 
-\section{Estimating The Structural Risk}
+\subsection{Estimating The Structural Risk}
 \begin{matlab}
 %}
 % Set the random seed for reproducibility 
@@ -307,21 +367,183 @@ training.
 related to variable \texttt{X1}. 
 \end{itemize}
 
-So we can now perform the calculation
+So we can now perform the calculation. Recall that the formula for
+$\mathbf{w}^T$ is: 
+
+\begin{equation}
+\mathbf{w} = \mathbf{X}\mathbf{Y}\mathbf{\alpha}^T
+\label{eq:wt}
+\end{equation}
+
+
+Equation \ref{eq:wt} is just another way of writing \ref{eq:wtsum}. 
+\begin{equation}
+\mathbf{w} = \sum\limits_{n=1}^N \alpha_n y_n \mathbf{x}_n
+\label{eq:wtsum}
+\end{equation}
+
 
 \begin{lstlisting}
 %}
 l = size(Y1,1); 
 loss = 0; 
+%Get W
+y = diag(Y1(m1.sv_indices));
+x = X1(m1.sv_indices, :);
+alpha = m1.sv_coef;
+w = alpha'*y*x;
+b = -m1.rho; 
+y_hat = sign(w*x' + b);
+
 % Only certain observations contain non-zero values, hence we only index
 % into the vectors calculated from training. 
 for i = 1:size(m1.sv_indices,1); 
-   loss = loss + abs(Y1[m1.sv_indices[i] - 
+  
+   loss = loss + abs(Y1(m1.sv_indices(i)) - y_hat(i));
 end
+fid = fopen('tmp/loss.tex', 'w');
+fprintf(fid, '%f', 1/(2*l)*loss); 
+fclose(fid);
+%{
+\end{lstlisting}
+The loss is then calculated to be \input{tmp/loss}. 
+
+\item We now need to generate another set of data (using a different random 
+ seed of course). 
+
+\begin{lstlisting}
+%}
+
+rand('seed', 3e5);
+randn('seed', 3e5);
+[X2, Y2] = DataGenerator(N, sigma/2);
+[predicted_label, accuracy, prob_estimates] = svmpredict(Y2, X2, m1); 
+fid = fopen('tmp/accuracy_31.tex', 'w');
+fprintf(fid, '%f', accuracy(1)); 
+fclose(fid); 
 %{
 \end{lstlisting}
 
+We can see now that we have a \input{tmp/accuracy_31.tex}\% accuracy. 
+
+Using a similar method as the above, we want calculate the empirical error
+and the test error for different values of C and plot the values
+logarithmically. 
+\begin{lstlisting}
+%}
+%%
+rand('seed', 1e5);
+randn('seed', 1e5);
+c_range = logspace(-1.5, 1, 100);
+
+train_err = zeros(size(c_range)); 
+test_err = zeros(size(c_range)); 
+
+for i = 1:size(c_range,2)
+   params = sprintf('-s 0 -t 0 -c %d', c_range(i)); 
+   m1 =  svmtrain(Y1, X1, params);
+   [~, err, ~] = svmpredict(Y1, X1, m1); 
+   train_err(i) = err(2); 
+   [~, err, ~] = svmpredict(Y2, X2, m1);
+   test_err(i)  = err(2); 
+end
+
+figure; 
+semilogx(c_range, train_err);
+hold on; 
+semilogx(c_range, test_err); 
+hold on ;
+semilogx(c_range, test_err-train_err); 
+hold off; 
+legend('Training Error', 'Testing Error', 'Train - Test'); 
+title('Plot of training and testing errors for different values of C'); 
+xlabel 'Values of C'
+ylabel 'Mean Square Error'
+saveas(gcf,'tmp/error_plot.eps','epsc')
+
+%{
+\end{lstlisting}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=4in]{tmp/error_plot.eps}
+\caption{Plot of training and testing errors for different values of C}
+\label{fig:c_errors} 
+\end{figure}
+
+\item From Figure \ref{fig:c_errors} we can see that the training error is
+always lower than the testing error. This makes sense because the test error
+is defined by the empirical plus the Vapnik Chervonenkis confidence. Therefore we
+would expect the training to be lower than the testing error because of the mathematical 
+definition of the expected risk. This is shown in Equation \ref{eq:exp_risk}. 
+
+\begin{equation}
+R(\alpha) \leq R_{emp}(\alpha) + \sqrt{(\frac{h(log(2l/h)+1) -log(\eta/4)}{l})}
+\label{eq:exp_risk}
+\end{equation}
+
+\item Now we want to observe if, instead of varying C, we vary the number
+of data from $N=10$ to $N=100$, holding $\sigma = 0.3$ and $C=1$.
+
+\begin{lstlisting}
+%}
+%%
+n_range = 10:1:100; 
+sigma = 0.3; 
+C = 1; 
+train_err = zeros(size(n_range)); 
+test_err = zeros(size(n_range)); 
+for i = 1:size(n_range, 2)
+   rand('seed', 1e5);
+   randn('seed', 1e5);
+   [train_x, train_y] = DataGenerator(n_range(i), sigma);
+   rand('seed', 3e5);
+   randn('seed', 3e5);
+   [test_x, test_y] = DataGenerator(n_range(i), sigma);
+   
+   params = sprintf('-s 0 -t 0 -c %d', C); 
+   model =  svmtrain(train_y, train_x, params);
+   [~, err, ~] = svmpredict(train_y, train_x, model); 
+   train_err(i) = err(2); 
+   [~, err, ~] = svmpredict(test_y, test_x, model);
+   test_err(i) = err(2); 
+end
+
+figure; 
+plot(n_range, train_err); 
+hold on; 
+plot(n_range, test_err); 
+title('Error vs the number of data samples.'); 
+legend('Training Error', 'Testing Error'); 
+xlabel('Number of samples'); 
+ylabel('Error'); 
+saveas(gcf,'tmp/sample_error.eps','epsc')
+
+
+%{
+\end{lstlisting}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=4in]{tmp/sample_error.eps}
+\caption{Plot of training and testing errors for different values of N}
+\label{fig:n_errors} 
+\end{figure}
+
+We can see in Figure \ref{fig:n_errors} that as we increase the number of
+samples, that our error goes down. We would expect to see this because we
+get more data with which to average and shatter the points with a more
+accurate hyperplane. The learning procedure seems consistent with the fact
+that we need more samples than we have dimensions in order to begin to
+predict the data more accurately. 
+
 \end{itemize}
+
+\section{Conclusion}
+From this brief study, we can see that using the package \textit{LIBSVM} we can accurately classify multidimensional 
+data consistently and accurately. Even though the use cases in this scenario are contrived and fairly trivial, SVMs
+have proven to be a useful tool in classification. In future works, we would like to see how well classification works on 
+higher dimensional data using the \textit{kernel trick}.
 \end{document}  
 %}
 
