@@ -39,11 +39,11 @@ apply it to more complicated and useful datasets.
 close all; 
 clear all;
 % Set the random seed for reproducibility 
-rand('seed', 1e5);
-randn('seed', 1e5);
+train_seed = rng(1); 
+test_seed = rng(2); 
 
 fid = fopen('tmp/computer.tex', 'w'); 
-fprintf(fid, [computer]); 
+fprintf(fid, computer); 
 fclose(fid); 
 
 fid = fopen('tmp/matlabver.tex', 'w'); 
@@ -116,11 +116,6 @@ with the following code and classify them as either being $+1$ or $-1$.
 
 \begin{matlab}
 %}
-close all; 
-clear all;
-% Set the random seed for reproducibility 
-rand('seed', 1e5);
-randn('seed', 1e5);
 
 fid = fopen('tmp/computer.tex', 'w'); 
 fprintf(fid, computer); 
@@ -132,6 +127,7 @@ fclose(fid);
 %}
 sigma = 0.2; 
 N = 10; 
+rng(train_seed)
 [X, Y] = plot2d(sigma, N);
 title('Four Gaussian distributions of points'); 
 saveas(gcf,'tmp/gaussian.eps','epsc')
@@ -287,16 +283,7 @@ classified except for two: it properly classifies one $-1$ value and
 misclassifies one $+1$ value. 
 
 \subsection{Estimating The Structural Risk}
-\begin{matlab}
-%}
-% Set the random seed for reproducibility 
-rand('seed', 1e5);
-randn('seed', 1e5);
-close all 
-clear all
 
-%{
-\end{matlab}
 The goal of this section is plot the structural risk ($R(\alpha)$) and 
 the empirical risk ($R_{emp}(\alpha)$). The function that is used for
 generating the points is as follows (this function was given to us 
@@ -327,9 +314,9 @@ as $+1$.
  
 \begin{lstlisting}
 %}
-sigma = .2; 
+sigma = 0.2; 
 N = 100; 
-[X1, Y1] = DataGenerator(N, sigma/2); 
+[X1, Y1] = DataGenerator(N, sigma/2, train_seed); 
 %{
 \end{lstlisting}  
 
@@ -414,9 +401,7 @@ The loss is then calculated to be \input{tmp/loss}.
 \begin{lstlisting}
 %}
 
-rand('seed', 3e5);
-randn('seed', 3e5);
-[X2, Y2] = DataGenerator(N, sigma/2);
+[X2, Y2] = DataGenerator(N, sigma/2, test_seed);
 [predicted_label, accuracy, prob_estimates] = svmpredict(Y2, X2, m1); 
 fid = fopen('tmp/accuracy_31.tex', 'w');
 fprintf(fid, '%f', accuracy(1)); 
@@ -432,30 +417,37 @@ logarithmically.
 \begin{lstlisting}
 %}
 %%
-rand('seed', 1e5);
-randn('seed', 1e5);
-c_range = logspace(-1.5, 1, 100);
+c_range = logspace(-1.5, 5, 100);
 
-train_err = zeros(size(c_range)); 
+r_emp = zeros(size(c_range)); 
+r_s = zeros(size(c_range)); 
+nu = 10^(-3);
+N=100;
+sigma = .2;
 test_err = zeros(size(c_range)); 
+train_err = zeros(size(c_range)); 
+[X1, Y1] = DataGenerator(N, sigma/2, rng('default')); 
+[X2, Y2] = DataGenerator(N, sigma/2, rng('default')); 
 
 for i = 1:size(c_range,2)
-   params = sprintf('-s 0 -t 0 -c %d', c_range(i)); 
+   params = sprintf('-s 0 -t 0 -c %d -q', c_range(i)); 
    m1 =  svmtrain(Y1, X1, params);
-   [~, err, ~] = svmpredict(Y1, X1, m1); 
-   train_err(i) = err(2); 
-   [~, err, ~] = svmpredict(Y2, X2, m1);
-   test_err(i)  = err(2); 
+  [~, err, ~] = svmpredict(Y1, X1, m1, '-q'); 
+  % train_err(i) = EmpiricalRisk(X1, Y1, m1); 
+  train_err(i) = err(2); 
+  [~, err, ~] = svmpredict(Y2, X2, m1, '-q');
+  %test_err(i) = EmpiricalRisk(X2, Y2, m1); 
+  test_err(i)  = err(2); 
 end
 
 figure; 
-semilogx(c_range, train_err);
+semilogx(c_range, test_err);
 hold on; 
-semilogx(c_range, test_err); 
+semilogx(c_range, train_err); 
 hold on ;
-semilogx(c_range, test_err-train_err); 
+semilogx(c_range, abs(test_err-train_err)); 
 hold off; 
-legend('Training Error', 'Testing Error', 'Train - Test'); 
+legend('Testing Error', 'Training Error', 'Testing - Training'); 
 title('Plot of training and testing errors for different values of C'); 
 xlabel 'Values of C'
 ylabel 'Mean Square Error'
@@ -488,31 +480,30 @@ of data from $N=10$ to $N=100$, holding $\sigma = 0.3$ and $C=1$.
 \begin{lstlisting}
 %}
 %%
-n_range = 10:1:100; 
-sigma = 0.3; 
-C = 1; 
+n_range = 1:1:500; 
+sigma = .2; 
+C = .01; 
 train_err = zeros(size(n_range)); 
 test_err = zeros(size(n_range)); 
+
 for i = 1:size(n_range, 2)
-   rand('seed', 1e5);
-   randn('seed', 1e5);
-   [train_x, train_y] = DataGenerator(n_range(i), sigma);
-   rand('seed', 3e5);
-   randn('seed', 3e5);
-   [test_x, test_y] = DataGenerator(n_range(i), sigma);
    
-   params = sprintf('-s 0 -t 0 -c %d', C); 
+   [train_x, train_y] = DataGenerator(n_range(i), sigma, train_seed);
+
+   [test_x, test_y] = DataGenerator(n_range(i), sigma, test_seed);
+   
+   params = sprintf('-s 0 -t 0 -c %d -q', C); 
    model =  svmtrain(train_y, train_x, params);
-   [~, err, ~] = svmpredict(train_y, train_x, model); 
+   [~, err, ~] = svmpredict(train_y, train_x, model, '-q'); 
    train_err(i) = err(2); 
-   [~, err, ~] = svmpredict(test_y, test_x, model);
+   [~, err, ~] = svmpredict(test_y, test_x, model, '-q');
    test_err(i) = err(2); 
 end
 
 figure; 
-plot(n_range, train_err); 
+plot(n_range, train_err, 'x'); 
 hold on; 
-plot(n_range, test_err); 
+plot(n_range, test_err, 'o'); 
 title('Error vs the number of data samples.'); 
 legend('Training Error', 'Testing Error'); 
 xlabel('Number of samples'); 
@@ -531,12 +522,13 @@ saveas(gcf,'tmp/sample_error.eps','epsc')
 \end{figure}
 
 We can see in Figure \ref{fig:n_errors} that as we increase the number of
-samples, that our error goes down. We would expect to see this because we
+samples, that the error for the training set starts very low, and then begins to rise. The testing
+error does the exact opposite where the error is high to begin with and then gets lower for higher
+values of N. Eventually, both values meet together and seem to level off at the same error for higher values of N.
+We would expect to see this because we
 get more data with which to average and shatter the points with a more
-accurate hyperplane. The learning procedure seems consistent with the fact
-that we need more samples than we have dimensions in order to begin to
-predict the data more accurately. 
-
+accurate hyperplane. The learning procedure seems consistent because we would expect that if we train
+and test on 
 \end{itemize}
 
 \section{Conclusion}

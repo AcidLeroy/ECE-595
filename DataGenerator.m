@@ -1,4 +1,4 @@
-function [X,Y]= DataGenerator(N,sigma)
+function [X,Y]= DataGenerator(N,sigma, seed)
 w=ones(1,10)/sqrt(10);
 w1=w.*[ 1  1  1  1  1 -1 -1 -1 -1 -1];
 w2=w.*[-1 -1  0  1  1 -1 -1 0  1  1];
@@ -13,8 +13,10 @@ X1=repmat(X1,2*N,1);
 X2=repmat(X2,2*N,1);
 X=[X1;X2];
 Y=[ones(4*2*N,1);-ones(4*2*N,1)];
+rng(seed);
 Z=randperm(8*2*N);
 Z=Z(1:N);
+rng(seed); 
 X=X(Z,:)+0.2*sigma*randn(size(X(Z,:)));
 Y=Y(Z);
 end
